@@ -1,34 +1,163 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# next.js에서 다국어(i18n) 적용하기
 
-## Getting Started
+## Install
 
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
+```shell
+yarn add next-i18next
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 번역 파일
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+```md
+public
+└── locales
+├── [language]
+| └── [namespace].json
+```
 
-[API routes](https://nextjs.org/docs/api-routes/introduction) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+- 파일 위치를 수정하려면 `localePath` 옵션을 참고
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
+## Config
 
-## Learn More
+### `next-i18next.config.js` 작성
 
-To learn more about Next.js, take a look at the following resources:
+```js
+module.exports = {
+  i18n: {
+    defaultLocale: "ko",
+    locales: ["ko", "en", "ja"],
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+    /** true로 설정 시 Next.js에서 자동으로 접속한 사용자의 로케일로 표시함 */
+    localeDetection: false,
+  },
+};
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+`next.config.js`
 
-## Deploy on Vercel
+```js
+const { i18n } = require("./next-i18next.config");
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+const nextConfig = {
+  i18n,
+};
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+module.exports = nextConfig;
+```
+
+### appWithTranslation로 app 감싸기
+
+```tsx
+import "../styles/globals.css";
+import type { AppProps } from "next/app";
+import { appWithTranslation } from "next-i18next";
+
+function MyApp({ Component, pageProps }: AppProps) {
+  return <Component {...pageProps} />;
+}
+
+export default appWithTranslation(MyApp);
+```
+
+## 적용
+
+- pages/index.tsx
+
+```tsx
+export default function Home() {
+  const { t } = useTranslation();
+
+  return (
+    // ...
+  )
+}
+
+export async function getStaticProps({ locale }: GetStaticPropsContext) {
+  if (locale) {
+    return {
+      props: {
+        ...(await serverSideTranslations(locale, ["common"])),
+      },
+    };
+  }
+
+  return {
+    props: {},
+  };
+}
+```
+
+- 기본
+
+```tsx
+// { "안녕하세요": "안녕하세요" }
+<p>{t("common:안녕하세요")}</p>
+```
+
+- 변수 사용
+
+```tsx
+// { "이름": "저는 {{name}}입니다." }
+<p>{t("home:이름", { name })}</p>
+```
+
+- 리스트
+
+```tsx
+// { "항목": ["오늘 점심은 무엇을 먹을까요", "오늘 저녁을 무엇을 먹을까요?"] }
+{
+  (t("home:항목", { returnObjects: true }) as [])?.map((elem) => (
+    <li key={elem}>{elem}</li>
+  ));
+}
+```
+
+## 라우팅
+
+```tsx
+export default function Home() {
+  const router = useRouter();
+  const { pathname, asPath, query } = router;
+
+  return (
+    <select
+      defaultValue={router.locale}
+      onChange={(e) =>
+        router.push({ pathname, query }, asPath, { locale: e.target.value })
+      }
+    >
+      <option value="ko">{t("common:한국어")}</option>
+      <option value="en">{t("common:영어")}</option>
+      <option value="ja">{t("common:일본어")}</option>
+    </select>
+  );
+}
+```
+
+- [nextjs i18n-routing](https://nextjs.org/docs/advanced-features/i18n-routing#transition-between-locales)
+
+## 파일 분리
+
+```ts
+export async function getStaticProps({ locale }: GetStaticPropsContext) {
+  if (locale) {
+    return {
+      props: {
+        ...(await serverSideTranslations(locale, ["home"])),
+      },
+    };
+  }
+
+  return {
+    props: {},
+  };
+}
+```
+
+`serverSideTranslations` 두번째 인자에 namespace를 넣는다.
+
+## 참고
+
+- [next-i18next](https://github.com/i18next/next-i18next)
+- [nextjs document - i18n](https://nextjs.org/docs/advanced-features/i18n-routing)
+- [cereme.dev](https://cereme.dev/frontend/i18n-flask-babel-next-i18next/)

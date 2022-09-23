@@ -1,0 +1,7 @@
+{
+  "이름": "I am {{name}}",
+  "항목": [
+    "What should we eat for lunch today?",
+    "What should we eat for dinner tonight?"
+  ]
+}
